@@ -29,7 +29,7 @@ Resources:
       EnableDnsHostnames: 'true'
       Tags:
       - Key: Name
-        Value: fundoonote
+        Value: CF_VPC
   PublicSubnet:
     Type: AWS::EC2::Subnet
     Properties:
@@ -39,7 +39,7 @@ Resources:
       AvailabilityZone: ap-south-1a
       Tags:
       - Key: Name
-        Value: FundooNote_public_subnet
+        Value: CF_PublicSubnet
   FirstPrivateSubnet:
     Type: AWS::EC2::Subnet
     Properties:
@@ -49,7 +49,7 @@ Resources:
       AvailabilityZone: ap-south-1a
       Tags:
       - Key: Name
-        Value: FundooNote_private_subnet-1
+        Value: CF_PrivateSubnet1
   SecondPrivateSubnet:
     Type: AWS::EC2::Subnet
     Properties:
@@ -59,13 +59,13 @@ Resources:
       AvailabilityZone: ap-south-1b
       Tags:
       - Key: Name
-        Value: FundooNote_private_subnet-2
+        Value: CF_PrivateSubnet2
   InternetGateway:
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
       - Key: Name
-        Value: FundooNote_igw
+        Value: CF_InternetGateway
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
@@ -80,7 +80,7 @@ Resources:
         Ref: VPC
       Tags:
       - Key: Name
-        Value: FundooNote_public_rt
+        Value: CF_Public_RoutTable
   FirstPrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -88,7 +88,7 @@ Resources:
         Ref: VPC
       Tags:
       - Key: Name
-        Value: FundooNote_private_rt-1
+        Value: CF_Private_RoutTable1
   SecondPrivateRouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
@@ -96,7 +96,7 @@ Resources:
         Ref: VPC
       Tags:
       - Key: Name
-        Value: FundooNote_private_rt-2
+        Value: CF_Private_RoutTable2
   IPAddress:
     Type: AWS::EC2::EIP
     Properties:
@@ -164,7 +164,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: public-securitygroup
-      GroupDescription: FundooNote vpc security group
+      GroupDescription: CF_VPCSecurityGroup
       VpcId:
         Ref: VPC
       SecurityGroupIngress:
@@ -178,12 +178,12 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: Name
-        Value: FundooNote_bastion_security_group
+        Value: CF_bastion_security_group
   SecurityGroupPrivate:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: private-securitygroup
-      GroupDescription: FundooNote vpc security group
+      GroupDescription: CF_vpc_security_group
       VpcId:
         Ref: VPC
       SecurityGroupIngress:
@@ -210,7 +210,7 @@ Resources:
         CidrIp: 0.0.0.0/0
       Tags:
       - Key: Name
-        Value: FundooNote_application-security_group
+        Value: CF_application-security_group
     DependsOn: SecurityGroupPublic
 
   BastionServer:
@@ -245,7 +245,7 @@ Resources:
       - Ref: SecondPrivateSubnet
       Tags:
       - Key: Name
-        Value: FundooNote_db_subnet_group
+        Value: CF_db_subnet_group
   DB:
     Type: AWS::RDS::DBInstance
     Properties:
@@ -273,4 +273,3 @@ Resources:
       QueueName: fundoo_queue
       ReceiveMessageWaitTimeSeconds: 3
       VisibilityTimeout: 0
-
