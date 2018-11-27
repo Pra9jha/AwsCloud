@@ -1,0 +1,276 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Parameters:
+  InstanceType:
+    Description: WebServer EC2 instance type
+    Type: String
+    Default: t2.micro
+  RegionName:
+    Description: Name of the region
+    Type: String
+    Default: ap-south-1
+  ImageId:
+    Type: String
+  keyname:
+    Type: AWS::EC2::KeyPair::KeyName
+Mappings:
+  AWSInstanceType2Arch:
+    t2.micro:
+      Arch: HVM64
+  AWSRegionArch2AMI:
+    ap-south-1:
+      HVM64: ami-0912f71e06545ad88
+      HVMG2: ami-097b15e89dbdcfcf4
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
+      Tags:
+      - Key: Name
+        Value: fundoonote
+  PublicSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 10.0.0.0/24
+      AvailabilityZone: ap-south-1a
+      Tags:
+      - Key: Name
+        Value: FundooNote_public_subnet
+  FirstPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 10.0.1.0/24
+      AvailabilityZone: ap-south-1a
+      Tags:
+      - Key: Name
+        Value: FundooNote_private_subnet-1
+  SecondPrivateSubnet:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: VPC
+      CidrBlock: 10.0.2.0/24
+      AvailabilityZone: ap-south-1b
+      Tags:
+      - Key: Name
+        Value: FundooNote_private_subnet-2
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+      - Key: Name
+        Value: FundooNote_igw
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId:
+        Ref: VPC
+      InternetGatewayId:
+        Ref: InternetGateway
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: FundooNote_public_rt
+  FirstPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: FundooNote_private_rt-1
+  SecondPrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: VPC
+      Tags:
+      - Key: Name
+        Value: FundooNote_private_rt-2
+  IPAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NAT:
+    DependsOn: AttachGateway
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId:
+        Fn::GetAtt:
+        - IPAddress
+        - AllocationId
+      SubnetId:
+        Ref: PublicSubnet
+      Tags:
+      - Key: Application
+        Value: AWS::StackId
+  Routepublic:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId:
+        Ref: PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId:
+        Ref: InternetGateway
+  FirstRouteprivate:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: FirstPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NAT
+  SecondRouteprivate:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId:
+        Ref: SecondPrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId:
+        Ref: NAT
+  SubnetPublicRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: PublicSubnet
+      RouteTableId:
+        Ref: PublicRouteTable
+  FirstSubnetPrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: FirstPrivateSubnet
+      RouteTableId:
+        Ref: FirstPrivateRouteTable
+  SecondSubnetPrivateRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId:
+        Ref: SecondPrivateSubnet
+      RouteTableId:
+        Ref: SecondPrivateRouteTable
+  SecurityGroupPublic:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: public-securitygroup
+      GroupDescription: FundooNote vpc security group
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: FundooNote_bastion_security_group
+  SecurityGroupPrivate:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: private-securitygroup
+      GroupDescription: FundooNote vpc security group
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: '80'
+        ToPort: '80'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '22'
+        ToPort: '22'
+        SourceSecurityGroupId:
+          Ref: SecurityGroupPublic
+      - IpProtocol: tcp
+        FromPort: '8080'
+        ToPort: '8080'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '8000'
+        ToPort: '8000'
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: '3306'
+        ToPort: '3306'
+        CidrIp: 0.0.0.0/0
+      Tags:
+      - Key: Name
+        Value: FundooNote_application-security_group
+    DependsOn: SecurityGroupPublic
+
+  BastionServer:
+    Type: AWS::EC2::Instance
+    DependsOn: AttachGateway
+    Properties:
+      InstanceType: t2.micro
+      KeyName:
+        Ref: keyname
+      ImageId:
+        Fn::FindInMap:
+        - AWSRegionArch2AMI
+        - Ref: RegionName
+        - Fn::FindInMap:
+          - AWSInstanceType2Arch
+          - Ref: InstanceType
+          - Arch
+      NetworkInterfaces:
+      - GroupSet:
+        - Ref: SecurityGroupPublic
+        AssociatePublicIpAddress: 'true'
+        DeviceIndex: '0'
+        DeleteOnTermination: 'true'
+        SubnetId:
+          Ref: PublicSubnet
+  myDBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: description
+      SubnetIds:
+      - Ref: FirstPrivateSubnet
+      - Ref: SecondPrivateSubnet
+      Tags:
+      - Key: Name
+        Value: FundooNote_db_subnet_group
+  DB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: fundoo
+      Engine: MySQL
+      EngineVersion: 5.6.37
+      DBInstanceClass: db.t2.micro
+      DBInstanceIdentifier: fundoonote-db
+      MasterUsername: root
+      MasterUserPassword: J3ssicaBr!dG3
+      AllocatedStorage: '20'
+      BackupRetentionPeriod: '0'
+      MultiAZ: false
+      PubliclyAccessible: false
+      AutoMinorVersionUpgrade: false
+      VPCSecurityGroups:
+      - Ref: SecurityGroupPrivate
+      DBSubnetGroupName:
+        Ref: myDBSubnetGroup
+  MySourceQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MaximumMessageSize: 262144
+      MessageRetentionPeriod: 600
+      QueueName: fundoo_queue
+      ReceiveMessageWaitTimeSeconds: 3
+      VisibilityTimeout: 0
+
